@@ -1,0 +1,40 @@
+package handlers
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
+
+	handlermodels "github.com/SmitSheth/Mini-twitter/cmd/webd/handlers/models"
+	authpb "github.com/SmitSheth/Mini-twitter/internal/auth/authentication"
+	postpb "github.com/SmitSheth/Mini-twitter/internal/post/postpb"
+)
+
+// PostHandler is the handler for /post. It is used to create posts
+func PostHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		reqMessage := handlermodels.CreatePostRequest{}
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			APIResponse(w, r, http.StatusBadRequest, "Error while reading request", make(map[string]string))
+			return
+		}
+		err = json.Unmarshal(body, &reqMessage)
+		if err != nil {
+			APIResponse(w, r, http.StatusBadRequest, "Error while unmarshalling", make(map[string]string))
+			return
+		}
+
+		user := r.Context().Value("user").(*authpb.UserId)
+		_, err = PostServiceClient.CreatePost(r.Context(), &postpb.Post{UserId: user.UserId, Message: reqMessage.Message})
+
+		if err != nil {
+			APIResponse(w, r, http.StatusInternalServerError, "Post not added:"+err.Error(), make(map[string]string))
+			return
+		}
+		APIResponse(w, r, http.StatusOK, "Post added successfully", make(map[string]string))
+	default:
+		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+	}
+}
